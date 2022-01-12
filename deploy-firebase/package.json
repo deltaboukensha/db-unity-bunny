@@ -1,0 +1,16 @@
+{
+  "name": "deploy-firebase",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "wipe": "rm -rf .dist/*",
+    "copy": "cp -a ../Releases/db-unity-bunny/. .dist",
+    "deploy": "firebase deploy",
+    "publish": "npm run wipe && npm run copy && npm run deploy"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "firebase-tools": "^9.23.3"
+  }
+}
