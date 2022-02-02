@@ -43,7 +43,13 @@ namespace AssemblyCSharp.Assets.Scripts
 
         void OnMouseUp()
         {
-            parent.GetComponent<Bunny>().SetTargetPosition(game.GetGridXY(this.transform.position));
+            var gridXY = game.GetGridXY(this.transform.position);
+            parent.GetComponent<Bunny>().SetTargetPosition(new Vector3Int()
+            {
+                x = gridXY.x,
+                y = gridXY.y,
+                z = 1,
+            });
             dragging = false;
             this.GetComponent<SpriteRenderer>().enabled = false;
         }

@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System;
 using UnityEngine;
+using System.Linq;
 
 namespace AssemblyCSharp.Assets.Scripts
 {
@@ -12,102 +13,70 @@ namespace AssemblyCSharp.Assets.Scripts
         {
             base.Start();
 
-            game.QueueCard(new SpawnCard()
-            {
-                actor = this,
-                pos = this.GetGridXYZ(),
-            });
-
+            this.speed = 1.0f;
             StartCoroutine(Coroutine());
         }
 
-        public override void PlayCard(SeekCard card)
-        {
-            var board = card.gameBoard;
-            var p = this.GetGridXYZ();
-
-            for (var y = p.y - 5; y < p.y + 5; y++)
-            {
-                for (var x = p.x - 5; x < p.x + 5; x++)
-                {
-                    var b = new Vector3Int(x, y, p.z);
-
-                    if(!board.ContainsKey(b)) continue;
-
-                    var occupant = board[b];
-
-                    if(occupant is Bunny)
-                    {
-                        var path = game.FindPath(this.GetGridXYZ(), occupant.GetGridXYZ());
-
-                        if (path == null) continue;
-
-                        DrawGizmoPath(path);
-                        game.QueueCard(game.PathToCard(path, this));
-                        return;
-                    }
-                }
-            }
-
-            if (pathInProgress) return;
-
-            // else random move
-            {
-                var oldPos = this.GetGridXYZ();
-                var newPos = new Vector3Int()
-                {
-                    x = oldPos.x + UnityEngine.Random.Range(-5, +5),
-                    y = oldPos.y + UnityEngine.Random.Range(-5, +5),
-                    z = oldPos.z,
-                };
-                var path = game.FindPath(oldPos, newPos);
-
-                if (path == null) return;
-
-                DrawGizmoPath(path);
-                game.QueueCard(game.PathToCard(path, this));
-            }
-        }
-
-        IEnumerator Coroutine()
+        private IEnumerator Coroutine()
         {
             while (true)
             {
                 // infinite loop guard first line
                 yield return new WaitForSeconds(1.0f);
 
-                game.QueueCard(new SeekCard()
-                {
-                    actor = this,
-                });
+                this.gridXYZ = this.GetGridXYZ();
 
-                continue;
-
-                if (pathInProgress) continue;
-
-                var p = this.transform.position;
-                var oldPos = game.GetGridXY(new Vector3()
+                var bunny = GameObject.FindWithTag("bunny");
+                if (bunny == null)
                 {
-                    x = p.x,
-                    y = p.y + 0.25f,
-                    z = p.z,
-                });
-                oldPos.z = GetComponent<SpriteRenderer>().sortingOrder;
-                var newPos = new Vector3Int()
-                {
-                    x = Mathf.RoundToInt(oldPos.x + UnityEngine.Random.Range(-5, +5)),
-                    y = Mathf.RoundToInt(oldPos.y + UnityEngine.Random.Range(-5, +5)),
-                    z = oldPos.z,
+                    this.fightInProgress = false;
+                    GetComponent<Animator>().SetBool("fightInProgress", fightInProgress);
+                    continue;
                 };
 
-                if (newPos == oldPos) continue;
+                var bunnyActor = bunny.GetComponent<GameActor>();
 
-                var path = game.FindPath(oldPos, newPos);
+                var gridDistance = Vector3Int.Distance(bunnyActor.gridXYZ, this.gridXYZ);
+                if (gridDistance > 5.0f)
+                {
+                    this.IsFighting(false);
+                    continue;
+                }
 
-                if (path == null) continue;
+                var path = game.FindPath(this.gridXYZ, bunnyActor.gridXYZ);
+                Debug.Log(path);
+                if (path == null)
+                {
+                    this.IsFighting(false);
+
+                    path = game.FindPath(this.gridXYZ, new Vector3Int(
+                        gridXYZ.x + UnityEngine.Random.Range(-5, +5),
+                        gridXYZ.y + UnityEngine.Random.Range(-5, +5),
+                        gridXYZ.z
+                    ));
+
+                    Debug.Log(string.Join(",", path));
+                    continue;
+                }
+                else
+                {
+                    path.RemoveAt(path.Count() - 1);
+                }
 
                 DrawGizmoPath(path);
-                game.QueueCard(game.PathToCard(path, this));
+                this.targetPath = path;
+
+                if (gridDistance < 2.0f)
+                {
+                    var attacker = this;
+                    var defender = bunnyActor;
+
+                    var attackerDelta = defender.transform.position - attacker.transform.position;
+                    attacker.GetComponent<Animator>().SetFloat("deltaX", attackerDelta.x);
+                    attacker.GetComponent<Animator>().SetFloat("deltaY", attackerDelta.y);
+                    attacker.GetComponent<SpriteRenderer>().flipX = attackerDelta.x < 0;
+                    attacker.IsFighting(true);
+                }
             }
         }
     }

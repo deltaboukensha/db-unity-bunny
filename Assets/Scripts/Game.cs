@@ -16,107 +16,6 @@ namespace AssemblyCSharp.Assets.Scripts
 
     public class Game : MonoBehaviour
     {
-        public static Game main;
-        private List<GameCard> gameCards = new List<GameCard>();
-        private List<GameActor> gameActors = new List<GameActor>();
-
-        IEnumerator Coroutine()
-        {
-            while (true)
-            {
-                // infinite loop guard first line
-                yield return new WaitForSeconds(1.2f);
-
-                ResolveCards();
-            }
-        }
-
-        void Start()
-        {
-            main = this;
-            StartCoroutine(Coroutine());
-        }
-
-        void Update()
-        {
-        }
-
-        public void QueueCard(GameCard gameCard)
-        {
-            Debug.Log("queue: " + gameCard);
-
-            gameCards.Add(gameCard);
-        }
-
-        private void ResolveCards()
-        {
-            var gameBoard = new Dictionary<Vector3Int, GameActor>();
-
-            foreach (var gameActor in gameActors)
-            {
-                // todo figure out how to handle overlapping positions
-                if (gameBoard.ContainsKey(gameActor.GetGridXYZ())) continue;
-
-                gameBoard.Add(gameActor.GetGridXYZ(), gameActor);
-            }
-
-            while (gameCards.Count > 0)
-            {
-                // infinite loop guard first line
-                var card = gameCards.First();
-                gameCards.RemoveAt(0);
-
-                if (card is SpawnCard)
-                {
-                    var c = card as SpawnCard;
-                    gameActors.Add(c.actor);
-                }
-                else if (card is MoveCard)
-                {
-                    var c = card as MoveCard;
-
-                    if (gameBoard.ContainsKey(c.newPos))
-                    {
-                        var f = new FightCard()
-                        {
-                            attacker = c.actor,
-                            defender = gameBoard[c.newPos],
-                            chain = c,
-                        };
-                        this.QueueCard(f);
-                    }
-                    else
-                    {
-                        c.actor.PlayCard(c);
-                    }
-                }
-                else if (card is FightCard)
-                {
-                    var c = card as FightCard;
-                    c.attacker.PlayCard(c);
-                    c.defender.PlayCard(c);
-                }
-                else if (card is PathStartCard)
-                {
-                    card.actor.PlayCard(card as PathStartCard);
-                }
-                else if (card is PathFinishCard)
-                {
-                    card.actor.PlayCard(card as PathFinishCard);
-                }
-                else if(card is SeekCard)
-                {
-                    var c = card as SeekCard;
-                    c.gameBoard = gameBoard;
-                    c.actor.PlayCard(c);
-                }
-                else
-                {
-                    throw new System.Exception("unsupported card");
-                }
-            }
-        }
-
         public Vector3Int GetGridXY(Vector3 worldPos)
         {
             var grid = GameObject.FindWithTag("grid").GetComponent<Grid>();
@@ -193,7 +92,7 @@ namespace AssemblyCSharp.Assets.Scripts
             while (list.Count > 0)
             {
                 // infinite loop guard first line
-                if (visited.Count() > 100) break;
+                if (visited.Count() > 100) return null;
 
                 // dequeue and mark as visited
                 var node = list.First().Value;
@@ -246,47 +145,6 @@ namespace AssemblyCSharp.Assets.Scripts
             }
 
             return null;
-        }
-
-        public GameCard PathToCard(List<Vector3Int> path, GameActor actor)
-        {
-            var start = new PathStartCard()
-            {
-                actor = actor,
-            };
-
-            var finish = new PathFinishCard()
-            {
-                actor = actor,
-            };
-
-            var moves = path.Select(p => new MoveCard()
-            {
-                oldPos = p,
-                actor = actor,
-            }).ToArray();
-
-            for (var i = 0; i < moves.Count() - 1; i++)
-            {
-                moves[i].newPos = moves[i + 1].oldPos;
-            }
-
-            var list = new List<GameCard>();
-            list.Add(start);
-            list.AddRange(moves.Take(moves.Length - 1));
-            list.Add(finish);
-
-            return MakeCardChain(list);
-        }
-
-        public GameCard MakeCardChain(List<GameCard> list)
-        {
-            for (var i = 0; i < list.Count() - 1; i++)
-            {
-                list[i].chain = list[i + 1];
-            }
-
-            return list.First();
         }
     }
 }

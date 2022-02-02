@@ -11,11 +11,14 @@ namespace AssemblyCSharp.Assets.Scripts
     public abstract class GameActor : MonoBehaviour
     {
         protected List<Vector3> gizmoPath = new List<Vector3>();
-        protected MoveCard moveCard;
         protected bool pathInProgress = false;
         protected bool fightInProgress = false;
         protected Game game;
         protected int health;
+        protected float speed = 1.0f;
+        public Vector3Int gridXYZ;
+        protected Vector3Int? targetGridXYZ;
+        protected List<Vector3Int> targetPath;
 
         protected void Start()
         {
@@ -24,39 +27,47 @@ namespace AssemblyCSharp.Assets.Scripts
 
         protected void Update()
         {
-            if (moveCard != null)
+            this.gridXYZ = this.GetGridXYZ();
+
+            if (this.targetPath == null) return;
+
+            if (!this.targetPath.Any())
             {
-                var targetPosition = game.GetWorldXYZ(moveCard.newPos);
-                var delta = targetPosition - transform.position;
-                var change = delta.normalized * Time.deltaTime;
-
-                if (Math.Abs(delta.magnitude) < Math.Abs(change.magnitude))
-                {
-                    // solves bug where change can overshoot target position
-                    transform.position = targetPosition;
-                }
-                else
-                {
-                    transform.position += change;
-                }
-
-                if (delta.magnitude < 0.01f)
-                {
-                    if (moveCard.chain != null)
-                    {
-                        game.QueueCard(moveCard.chain);
-                    }
-
-                    moveCard = null;
-                }
-                else
-                {
-                    GetComponent<Animator>().SetFloat("velocity", Math.Abs(delta.magnitude));
-                    GetComponent<Animator>().SetFloat("deltaX", delta.x);
-                    GetComponent<Animator>().SetFloat("deltaY", delta.y);
-                    GetComponent<SpriteRenderer>().flipX = delta.x < 0;
-                }
+                this.targetPath = null;
+                return;
             }
+
+            this.targetGridXYZ = this.targetPath.First();
+
+            if (this.targetGridXYZ == null) return;
+
+            var gridDistance = Vector3Int.Distance(this.targetGridXYZ.Value, this.gridXYZ);
+            var targetWorldXYZ = game.GetWorldXYZ(this.targetGridXYZ.Value);
+            var delta = targetWorldXYZ - transform.position;
+            var change = delta.normalized * Time.deltaTime * this.speed;
+
+            if (Math.Abs(delta.magnitude) < Math.Abs(change.magnitude))
+            {
+                // solves bug where change can overshoot target position
+                transform.position = targetWorldXYZ;
+            }
+            else
+            {
+                transform.position += change;
+            }
+
+            if (gridDistance < 0.1f)
+            {
+                this.targetPath.RemoveAt(0);
+            }
+            else
+            {
+                GetComponent<Animator>().SetFloat("deltaX", delta.x);
+                GetComponent<Animator>().SetFloat("deltaY", delta.y);
+                GetComponent<SpriteRenderer>().flipX = delta.x < 0;
+            }
+
+            GetComponent<Animator>().SetFloat("velocity", Math.Abs(delta.magnitude));
         }
 
         void OnDrawGizmos()
@@ -87,74 +98,14 @@ namespace AssemblyCSharp.Assets.Scripts
             return p;
         }
 
-        public void PlayCard(MoveCard card)
+        public void IsFighting(bool isFighting)
         {
-            this.moveCard = card;
-            this.fightInProgress = false;
-            GetComponent<Animator>().SetBool("fightInProgress", fightInProgress);
+            GetComponent<Animator>().SetBool("fightInProgress", isFighting);
         }
 
-        public void PlayCard(PathStartCard card)
+        public void IsDying(bool isDying)
         {
-            this.pathInProgress = true;
-
-            if (card.chain != null)
-            {
-                game.QueueCard(card.chain);
-            }
-        }
-
-        public void PlayCard(PathFinishCard card)
-        {
-            this.pathInProgress = false;
-
-            if (card.chain != null)
-            {
-                game.QueueCard(card.chain);
-            }
-        }
-
-        public void PlayCard(FightCard fightCard)
-        {
-            this.fightInProgress = true;
-            GetComponent<Animator>().SetBool("fightInProgress", fightInProgress);
-
-            if (this == fightCard.attacker)
-            {
-                var delta = fightCard.defender.transform.position - fightCard.attacker.transform.position;
-                GetComponent<Animator>().SetFloat("deltaX", delta.x);
-                GetComponent<Animator>().SetFloat("deltaY", delta.y);
-                GetComponent<SpriteRenderer>().flipX = delta.x < 0;
-            }
-
-            if(this == fightCard.defender)
-            {
-                var delta = fightCard.attacker.transform.position - fightCard.defender.transform.position;
-                GetComponent<Animator>().SetFloat("deltaX", delta.x);
-                GetComponent<Animator>().SetFloat("deltaY", delta.y);
-                GetComponent<SpriteRenderer>().flipX = delta.x < 0;
-            }
-        }
-
-        public virtual void PlayCard(SeekCard card)
-        {
-            throw new NotImplementedException();
-        }
-
-        public virtual void PlayCard(DamageCard damageCard)
-        {
-            damageCard.defender.health -= damageCard.damage;
-            // spawn damage number
-
-            if (damageCard.defender.health < 0)
-            {
-                //spawn death card
-                game.QueueCard(new DeathCard()
-                {
-                    actor = damageCard.defender,
-                    chain = damageCard.chain,
-                });
-            }
+            Destroy(this.gameObject);
         }
     }
 }

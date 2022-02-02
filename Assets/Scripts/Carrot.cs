@@ -10,12 +10,6 @@ namespace AssemblyCSharp.Assets.Scripts
         new void Start()
         {
             base.Start();
-
-            game.QueueCard(new SpawnCard()
-            {
-                actor = this,
-                pos = this.GetGridXYZ(),
-            });
         }
     }
 }
