@@ -39,31 +39,22 @@ namespace AssemblyCSharp.Assets.Scripts
                 var gridDistance = Vector3Int.Distance(bunnyActor.gridXYZ, this.gridXYZ);
                 if (gridDistance > 5.0f)
                 {
-                    this.IsFighting(false);
+                    randomWalk();
                     continue;
                 }
 
                 var path = game.FindPath(this.gridXYZ, bunnyActor.gridXYZ);
-                Debug.Log(path);
                 if (path == null)
                 {
-                    this.IsFighting(false);
-
-                    path = game.FindPath(this.gridXYZ, new Vector3Int(
-                        gridXYZ.x + UnityEngine.Random.Range(-5, +5),
-                        gridXYZ.y + UnityEngine.Random.Range(-5, +5),
-                        gridXYZ.z
-                    ));
-
-                    Debug.Log(string.Join(",", path));
+                    randomWalk();
                     continue;
                 }
                 else
                 {
+                    DrawGizmoPath(path);
                     path.RemoveAt(path.Count() - 1);
                 }
 
-                DrawGizmoPath(path);
                 this.targetPath = path;
 
                 if (gridDistance < 2.0f)
@@ -77,7 +68,28 @@ namespace AssemblyCSharp.Assets.Scripts
                     attacker.GetComponent<SpriteRenderer>().flipX = attackerDelta.x < 0;
                     attacker.IsFighting(true);
                 }
+                else
+                {
+                    this.IsFighting(false);
+                }
             }
+        }
+
+        private void randomWalk()
+        {
+            if (this.targetPath != null) return;
+
+            this.IsFighting(false);
+            var randomPath = game.FindPath(this.gridXYZ, new Vector3Int(
+                gridXYZ.x + UnityEngine.Random.Range(-5, +5),
+                gridXYZ.y + UnityEngine.Random.Range(-5, +5),
+                gridXYZ.z
+            ));
+
+            if (randomPath == null) return;
+
+            this.targetPath = randomPath;
+            DrawGizmoPath(this.targetPath);
         }
     }
 }
