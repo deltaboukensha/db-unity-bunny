@@ -6,3 +6,4 @@ Releases
 Temp
 deploy-firebase/.dist
 deploy-firebase/node_modules
+.utmp
